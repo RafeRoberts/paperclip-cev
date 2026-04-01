@@ -78,8 +78,20 @@ import {
   agentConfigurationDoc as hermesAgentConfigurationDoc,
   models as hermesModels,
 } from "hermes-paperclip-adapter";
-import { processAdapter } from "./process/index.js";
-import { httpAdapter } from "./http/index.js";
+import {
+  execute as processAgentExecute,
+  testEnvironment as processAgentTestEnvironment,
+} from "@paperclipai/adapter-process-agent/server";
+import {
+  agentConfigurationDoc as processAgentConfigurationDoc,
+} from "@paperclipai/adapter-process-agent";
+import {
+  execute as httpAgentExecute,
+  testEnvironment as httpAgentTestEnvironment,
+} from "@paperclipai/adapter-http-agent/server";
+import {
+  agentConfigurationDoc as httpAgentConfigurationDoc,
+} from "@paperclipai/adapter-http-agent";
 
 const claudeLocalAdapter: ServerAdapterModule = {
   type: "claude_local",
@@ -187,6 +199,22 @@ const hermesLocalAdapter: ServerAdapterModule = {
   detectModel: () => detectModelFromHermes(),
 };
 
+const processAgentAdapter: ServerAdapterModule = {
+  type: "process",
+  execute: processAgentExecute,
+  testEnvironment: processAgentTestEnvironment,
+  models: [],
+  agentConfigurationDoc: processAgentConfigurationDoc,
+};
+
+const httpAgentAdapter: ServerAdapterModule = {
+  type: "http",
+  execute: httpAgentExecute,
+  testEnvironment: httpAgentTestEnvironment,
+  models: [],
+  agentConfigurationDoc: httpAgentConfigurationDoc,
+};
+
 const adaptersByType = new Map<string, ServerAdapterModule>(
   [
     claudeLocalAdapter,
@@ -197,8 +225,8 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
     geminiLocalAdapter,
     openclawGatewayAdapter,
     hermesLocalAdapter,
-    processAdapter,
-    httpAdapter,
+    processAgentAdapter,
+    httpAgentAdapter,
   ].map((a) => [a.type, a]),
 );
 
@@ -206,7 +234,7 @@ export function getServerAdapter(type: string): ServerAdapterModule {
   const adapter = adaptersByType.get(type);
   if (!adapter) {
     // Fall back to process adapter for unknown types
-    return processAdapter;
+    return processAgentAdapter;
   }
   return adapter;
 }

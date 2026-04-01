@@ -11,6 +11,8 @@
     { "path": "./packages/adapters/openclaw-gateway" },
     { "path": "./packages/adapters/opencode-local" },
     { "path": "./packages/adapters/pi-local" },
+    { "path": "./packages/adapters/http-agent" },
+    { "path": "./packages/adapters/process-agent" },
     { "path": "./server" },
     { "path": "./ui" },
     { "path": "./cli" }
