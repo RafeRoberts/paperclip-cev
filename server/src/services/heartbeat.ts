@@ -1724,8 +1724,23 @@ export function heartbeatService(db: Db) {
     }
 
     const context = parseObject(run.contextSnapshot);
+
+    // HITL approval gate: block claiming if the associated issue is pending approval
+    const claimIssueId = readNonEmptyString(context.issueId);
+    if (claimIssueId) {
+      const issueApproval = await db
+        .select({ approvalStatus: issues.approvalStatus })
+        .from(issues)
+        .where(eq(issues.id, claimIssueId))
+        .then((rows) => rows[0] ?? null);
+      if (issueApproval?.approvalStatus === "pending" || issueApproval?.approvalStatus === "rework") {
+        await cancelRunInternal(run.id, "Blocked: issue requires HITL approval before execution");
+        return null;
+      }
+    }
+
     const budgetBlock = await budgets.getInvocationBlock(run.companyId, run.agentId, {
-      issueId: readNonEmptyString(context.issueId),
+      issueId: claimIssueId,
       projectId: readNonEmptyString(context.projectId),
     });
     if (budgetBlock) {
@@ -2713,6 +2728,27 @@ export function heartbeatService(db: Db) {
         outcome = "failed";
       }
 
+      // HITL approval gate: if the adapter returned a governance response,
+      // update the issue to require approval and block further execution.
+      if (outcome === "succeeded" && issueId && adapterResult.resultJson) {
+        const rj = adapterResult.resultJson as Record<string, unknown>;
+        const hitlApprovalType = rj.approvalType as string | undefined;
+        const hitlActionType = rj.actionType as string | undefined;
+        if (hitlApprovalType || rj.status === "needs_approval") {
+          await db
+            .update(issues)
+            .set({
+              approvalType: (hitlApprovalType ?? "plan_approval") as string,
+              approvalStatus: "pending",
+              actionType: hitlActionType ?? null,
+              actionPayload: (rj.actionPayload as Record<string, unknown>) ?? null,
+              riskTier: (rj.riskTier as string) ?? null,
+              updatedAt: new Date(),
+            })
+            .where(eq(issues.id, issueId));
+        }
+      }
+
       let logSummary: { bytes: number; sha256?: string; compressed: boolean } | null = null;
       if (handle) {
         logSummary = await runLogStore.finalize(handle);
@@ -3199,6 +3235,7 @@ export function heartbeatService(db: Db) {
             companyId: issues.companyId,
             executionRunId: issues.executionRunId,
             executionAgentNameKey: issues.executionAgentNameKey,
+            approvalStatus: issues.approvalStatus,
           })
           .from(issues)
           .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
@@ -3211,6 +3248,24 @@ export function heartbeatService(db: Db) {
             source,
             triggerDetail,
             reason: "issue_execution_issue_not_found",
+            payload,
+            status: "skipped",
+            requestedByActorType: opts.requestedByActorType ?? null,
+            requestedByActorId: opts.requestedByActorId ?? null,
+            idempotencyKey: opts.idempotencyKey ?? null,
+            finishedAt: new Date(),
+          });
+          return { kind: "skipped" as const };
+        }
+
+        // HITL approval gate: block execution if issue is pending approval
+        if (issue.approvalStatus === "pending" || issue.approvalStatus === "rework") {
+          await tx.insert(agentWakeupRequests).values({
+            companyId: agent.companyId,
+            agentId,
+            source,
+            triggerDetail,
+            reason: "issue_execution_pending_approval",
             payload,
             status: "skipped",
             requestedByActorType: opts.requestedByActorType ?? null,
