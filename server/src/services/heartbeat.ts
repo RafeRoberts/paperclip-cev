@@ -2730,11 +2730,13 @@ export function heartbeatService(db: Db) {
 
       // HITL approval gate: if the adapter returned a governance response,
       // update the issue to require approval and block further execution.
-      if (outcome === "succeeded" && issueId && adapterResult.resultJson) {
-        const rj = adapterResult.resultJson as Record<string, unknown>;
+      if (outcome === "succeeded" && issueId) {
+        const rj = (adapterResult.resultJson as Record<string, unknown>) ?? {};
         const hitlApprovalType = rj.approvalType as string | undefined;
         const hitlActionType = rj.actionType as string | undefined;
+
         if (hitlApprovalType || rj.status === "needs_approval") {
+          // Explicit governance response from adapter (plan_approval, tool_use, etc.)
           await db
             .update(issues)
             .set({
@@ -2743,9 +2745,29 @@ export function heartbeatService(db: Db) {
               actionType: hitlActionType ?? null,
               actionPayload: (rj.actionPayload as Record<string, unknown>) ?? null,
               riskTier: (rj.riskTier as string) ?? null,
+              status: "in_review",
               updatedAt: new Date(),
             })
             .where(eq(issues.id, issueId));
+        } else {
+          // Successful completion with no explicit governance — route to output review.
+          // Check if the issue's current approvalType is "none" (not already in a governance flow).
+          const currentIssue = await db
+            .select({ approvalType: issues.approvalType, approvalStatus: issues.approvalStatus })
+            .from(issues)
+            .where(eq(issues.id, issueId))
+            .then((rows) => rows[0] ?? null);
+          if (currentIssue && currentIssue.approvalType === "none") {
+            await db
+              .update(issues)
+              .set({
+                approvalType: "output_review",
+                approvalStatus: "pending",
+                status: "in_review",
+                updatedAt: new Date(),
+              })
+              .where(eq(issues.id, issueId));
+          }
         }
       }
 

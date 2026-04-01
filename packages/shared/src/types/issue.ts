@@ -125,6 +125,17 @@ export interface Issue {
   executionWorkspaceId: string | null;
   executionWorkspacePreference: string | null;
   executionWorkspaceSettings: IssueExecutionWorkspaceSettings | null;
+  approvalType: string;
+  riskTier: string | null;
+  actionType: string | null;
+  approvalStatus: string | null;
+  feedback: string | null;
+  reworkCount: number;
+  maxRework: number;
+  parentIssueId: string | null;
+  actionPayload: Record<string, unknown> | null;
+  decidedBy: string | null;
+  decidedAt: Date | null;
   startedAt: Date | null;
   completedAt: Date | null;
   cancelledAt: Date | null;
