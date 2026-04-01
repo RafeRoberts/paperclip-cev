@@ -55,7 +55,7 @@ export interface ProcessAgentInputPayload {
 
 /** Shape of the expected structured JSON output from the process. */
 export interface ProcessAgentResponse {
-  status?: "completed" | "failed" | "needs_approval";
+  status?: "completed" | "failed" | "needs_approval" | "plan_ready";
   output?: string;
   cost_cents?: number;
   session?: {
@@ -70,4 +70,12 @@ export interface ProcessAgentResponse {
     requiresApproval?: boolean;
   }>;
   metadata?: Record<string, unknown>;
+  /** CEW action type if the agent is requesting a governance action. */
+  action_type?: "use_tool" | "build_tool" | "add_agent";
+  /** Structured payload for governance actions. */
+  action_payload?: Record<string, unknown>;
+  /** Tool name for use_tool actions. */
+  tool?: string;
+  /** Plan text when agent submits an execution plan for approval. */
+  plan?: string;
 }

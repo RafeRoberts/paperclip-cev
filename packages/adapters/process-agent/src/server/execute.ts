@@ -20,6 +20,83 @@ function resolveApiUrl(): string {
   return `http://${resolvedHost}:${port}`;
 }
 
+function tryParseJson(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  const lines = trimmed.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith("{")) {
+      try {
+        return JSON.parse(line) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+}
+
+function handleGovernanceResponse(
+  parsed: Record<string, unknown>,
+  command: string,
+  baseResult: AdapterExecutionResult,
+): AdapterExecutionResult {
+  // Plan approval gate
+  if (parsed.status === "plan_ready" || parsed.plan) {
+    return {
+      ...baseResult,
+      exitCode: 0,
+      resultJson: {
+        ...(baseResult.resultJson as Record<string, unknown> ?? {}),
+        status: "needs_approval",
+        approvalType: "plan_approval",
+        plan: (parsed.plan ?? parsed.output ?? "") as string,
+      },
+      question: {
+        prompt: (parsed.plan ?? parsed.output ?? "Execution plan requires approval.") as string,
+        choices: [
+          { key: "approve", label: "Approve Plan", description: "Allow the agent to proceed" },
+          { key: "reject", label: "Reject Plan", description: "Reject and provide feedback" },
+          { key: "rework", label: "Request Rework", description: "Send back for revision" },
+        ],
+      },
+      summary: `process_agent ${command} — plan_ready`,
+    };
+  }
+
+  // CEW action type gates
+  if (parsed.action_type) {
+    const actionLabels: Record<string, string> = {
+      use_tool: "Tool use requires approval",
+      build_tool: "Tool creation requires board approval",
+      add_agent: "Agent creation requires board approval",
+    };
+
+    return {
+      ...baseResult,
+      exitCode: 0,
+      resultJson: {
+        ...(baseResult.resultJson as Record<string, unknown> ?? {}),
+        status: "needs_approval",
+        approvalType: parsed.action_type as string,
+        actionType: parsed.action_type as string,
+        actionPayload: (parsed.action_payload ?? {}) as Record<string, unknown>,
+        tool: parsed.tool as string | undefined,
+      },
+      question: {
+        prompt: (actionLabels[parsed.action_type as string] ?? "Action requires approval") as string,
+        choices: [
+          { key: "approve", label: "Approve", description: "Allow this action" },
+          { key: "deny", label: "Deny", description: "Reject this action" },
+        ],
+      },
+      summary: `process_agent ${command} — ${parsed.action_type}_pending`,
+    };
+  }
+
+  return baseResult;
+}
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { runId, agent, runtime, config, context, onLog, onMeta } = ctx;
   const cfg = config as unknown as ProcessAgentConfig;
@@ -193,5 +270,16 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   }
 
   // For stdout_json mode, try to parse structured response
-  return parseProcessOutput(outputText, proc, cfg);
+  const result = parseProcessOutput(outputText, proc, cfg);
+
+  // Check for CEW governance action types in the parsed result
+  const resultData = result.resultJson as Record<string, unknown> | undefined;
+  if (resultData) {
+    const parsedOutput = tryParseJson(outputText);
+    if (parsedOutput && (parsedOutput.action_type || parsedOutput.plan || parsedOutput.status === "plan_ready")) {
+      return handleGovernanceResponse(parsedOutput, cfg.command ?? "process", result);
+    }
+  }
+
+  return result;
 }

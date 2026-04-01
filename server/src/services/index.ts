@@ -30,3 +30,7 @@ export { notifyHireApproved, type NotifyHireApprovedInput } from "./hire-hook.js
 export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { reconcilePersistedRuntimeServicesOnStartup, restartDesiredRuntimeServicesOnStartup } from "./workspace-runtime.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
+export { approvalService as hitlApprovalService } from "./approval-service.js";
+export { riskClassifier } from "./risk-classifier.js";
+export { feedbackLoop } from "./feedback-loop.js";
+export { notificationService } from "./notification-service.js";

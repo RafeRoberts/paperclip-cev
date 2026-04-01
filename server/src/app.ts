@@ -28,6 +28,8 @@ import { instanceSettingsRoutes } from "./routes/instance-settings.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
+import { hitlApprovalRoutes } from "./routes/hitl-approvals.js";
+import { toolRegistryRoutes } from "./routes/tool-registry.js";
 import { pluginRoutes } from "./routes/plugins.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { applyUiBranding } from "./ui-branding.js";
@@ -149,6 +151,8 @@ export async function createApp(
   api.use(executionWorkspaceRoutes(db));
   api.use(goalRoutes(db));
   api.use(approvalRoutes(db));
+  api.use(hitlApprovalRoutes(db));
+  api.use(toolRegistryRoutes(db));
   api.use(secretRoutes(db));
   api.use(costRoutes(db));
   api.use(activityRoutes(db));

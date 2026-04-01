@@ -51,6 +51,18 @@ export const issues = pgTable(
       .references((): AnyPgColumn => executionWorkspaces.id, { onDelete: "set null" }),
     executionWorkspacePreference: text("execution_workspace_preference"),
     executionWorkspaceSettings: jsonb("execution_workspace_settings").$type<Record<string, unknown>>(),
+    // HITL governance columns
+    approvalType: text("approval_type").notNull().default("none"),
+    riskTier: text("risk_tier"),
+    actionType: text("action_type"),
+    approvalStatus: text("approval_status").default("pending"),
+    feedback: text("feedback"),
+    reworkCount: integer("rework_count").notNull().default(0),
+    maxRework: integer("max_rework").notNull().default(3),
+    parentIssueId: uuid("parent_issue_id").references((): AnyPgColumn => issues.id),
+    actionPayload: jsonb("action_payload").$type<Record<string, unknown>>(),
+    decidedBy: text("decided_by"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
@@ -75,6 +87,7 @@ export const issues = pgTable(
     originIdx: index("issues_company_origin_idx").on(table.companyId, table.originKind, table.originId),
     projectWorkspaceIdx: index("issues_company_project_workspace_idx").on(table.companyId, table.projectWorkspaceId),
     executionWorkspaceIdx: index("issues_company_execution_workspace_idx").on(table.companyId, table.executionWorkspaceId),
+    approvalStatusIdx: index("issues_company_approval_status_idx").on(table.companyId, table.approvalType, table.approvalStatus),
     identifierIdx: uniqueIndex("issues_identifier_idx").on(table.identifier),
     openRoutineExecutionIdx: uniqueIndex("issues_open_routine_execution_uq")
       .on(table.companyId, table.originKind, table.originId)

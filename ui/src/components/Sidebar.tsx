@@ -11,6 +11,8 @@ import {
   Boxes,
   Repeat,
   Settings,
+  ShieldCheck,
+  Wrench,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarSection } from "./SidebarSection";
@@ -106,6 +108,11 @@ export function Sidebar() {
         <SidebarProjects />
 
         <SidebarAgents />
+
+        <SidebarSection label="Governance">
+          <SidebarNavItem to="/hitl-approvals" label="HITL Approvals" icon={ShieldCheck} />
+          <SidebarNavItem to="/tool-registry" label="Tool Registry" icon={Wrench} />
+        </SidebarSection>
 
         <SidebarSection label="Company">
           <SidebarNavItem to="/org" label="Org" icon={Network} />

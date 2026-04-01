@@ -143,4 +143,14 @@ export const queryKeys = {
     dashboard: (pluginId: string) => ["plugins", pluginId, "dashboard"] as const,
     logs: (pluginId: string) => ["plugins", pluginId, "logs"] as const,
   },
+  hitlApprovals: {
+    list: (companyId: string) => ["hitl-approvals", companyId] as const,
+    history: (companyId: string, issueId: string) => ["hitl-approvals", companyId, "history", issueId] as const,
+    stats: (companyId: string) => ["hitl-approvals", companyId, "stats"] as const,
+    reworkChain: (companyId: string, issueId: string) => ["hitl-approvals", companyId, "rework-chain", issueId] as const,
+  },
+  toolRegistry: {
+    list: (companyId: string) => ["tool-registry", companyId] as const,
+    detail: (companyId: string, toolId: string) => ["tool-registry", companyId, toolId] as const,
+  },
 };

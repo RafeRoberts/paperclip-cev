@@ -17,6 +17,76 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function handleGovernanceResponse(
+  response: HttpAgentResponse,
+  url: string,
+  method: string,
+): AdapterExecutionResult {
+  // Plan approval gate
+  if (response.status === "plan_ready" || response.plan) {
+    return {
+      exitCode: 0,
+      signal: null,
+      timedOut: false,
+      resultJson: {
+        output: response.output ?? "",
+        status: "needs_approval",
+        approvalType: "plan_approval",
+        plan: response.plan ?? response.output ?? "",
+      },
+      question: {
+        prompt: response.plan ?? response.output ?? "Execution plan requires approval before work begins.",
+        choices: [
+          { key: "approve", label: "Approve Plan", description: "Allow the agent to proceed with execution" },
+          { key: "reject", label: "Reject Plan", description: "Reject and provide feedback" },
+          { key: "rework", label: "Request Rework", description: "Send back for revision" },
+        ],
+      },
+      summary: `HTTP ${method} ${url} — plan_ready`,
+    };
+  }
+
+  // CEW action type gates
+  if (response.action_type) {
+    const actionLabels: Record<string, string> = {
+      use_tool: "Tool use requires approval",
+      build_tool: "Tool creation requires board approval",
+      add_agent: "Agent creation requires board approval",
+    };
+
+    return {
+      exitCode: 0,
+      signal: null,
+      timedOut: false,
+      resultJson: {
+        output: response.output ?? "",
+        status: "needs_approval",
+        approvalType: response.action_type,
+        actionType: response.action_type,
+        actionPayload: response.action_payload ?? {},
+        tool: response.tool,
+      },
+      question: {
+        prompt: actionLabels[response.action_type] ?? "Action requires approval",
+        choices: [
+          { key: "approve", label: "Approve", description: "Allow this action" },
+          { key: "deny", label: "Deny", description: "Reject this action" },
+        ],
+      },
+      summary: `HTTP ${method} ${url} — ${response.action_type}_pending`,
+    };
+  }
+
+  // Shouldn't reach here, fallback
+  return {
+    exitCode: 0,
+    signal: null,
+    timedOut: false,
+    resultJson: { output: response.output ?? "" },
+    summary: `HTTP ${method} ${url} — unknown_governance`,
+  };
+}
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
   const { config, runId, agent, runtime, context, onLog } = ctx;
   const cfg = config as unknown as HttpAgentConfig;
@@ -146,6 +216,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           summary: `HTTP ${method} ${url} — 200`,
           resultJson: { output: rawBody },
         };
+      }
+
+      // Check for CEW governance action types
+      if (parsed.action_type || parsed.plan || parsed.status === "plan_ready") {
+        return handleGovernanceResponse(parsed, url, method);
       }
 
       return parseAgentResponse(parsed, cfg, url, method);

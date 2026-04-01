@@ -64,7 +64,7 @@ export interface HttpAgentRequestPayload {
 /** Shape of the expected response from the agent. */
 export interface HttpAgentResponse {
   /** Execution status. */
-  status: "completed" | "failed" | "needs_approval";
+  status: "completed" | "failed" | "needs_approval" | "plan_ready";
   /** Human-readable output / result text. */
   output?: string;
   /** Cost in cents for this execution. */
@@ -84,4 +84,12 @@ export interface HttpAgentResponse {
   }>;
   /** Arbitrary metadata from the agent. */
   metadata?: Record<string, unknown>;
+  /** CEW action type if the agent is requesting a governance action. */
+  action_type?: "use_tool" | "build_tool" | "add_agent";
+  /** Structured payload for governance actions (tool spec, agent spec, etc.). */
+  action_payload?: Record<string, unknown>;
+  /** Tool name for use_tool actions. */
+  tool?: string;
+  /** Plan text when agent submits an execution plan for approval. */
+  plan?: string;
 }
