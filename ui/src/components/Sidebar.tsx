@@ -22,6 +22,7 @@ import { SidebarAgents } from "./SidebarAgents";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { heartbeatsApi } from "../api/heartbeats";
+import { hitlApprovalsApi } from "../api/hitl-approvals";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,13 @@ export function Sidebar() {
     refetchInterval: 10_000,
   });
   const liveRunCount = liveRuns?.length ?? 0;
+  const { data: hitlPending } = useQuery({
+    queryKey: queryKeys.hitlApprovals.list(selectedCompanyId!),
+    queryFn: () => hitlApprovalsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+    refetchInterval: 15_000,
+  });
+  const hitlPendingCount = hitlPending?.length ?? 0;
 
   function openSearch() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
@@ -110,7 +118,7 @@ export function Sidebar() {
         <SidebarAgents />
 
         <SidebarSection label="Governance">
-          <SidebarNavItem to="/hitl-approvals" label="HITL Approvals" icon={ShieldCheck} />
+          <SidebarNavItem to="/hitl-approvals" label="HITL Approvals" icon={ShieldCheck} badge={hitlPendingCount} badgeTone="default" />
           <SidebarNavItem to="/tool-registry" label="Tool Registry" icon={Wrench} />
         </SidebarSection>
 
