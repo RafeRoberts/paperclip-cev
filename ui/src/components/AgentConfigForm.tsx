@@ -316,7 +316,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     adapterType === "hermes_local" ||
     adapterType === "opencode_local" ||
     adapterType === "pi_local" ||
-    adapterType === "cursor";
+    adapterType === "cursor" ||
+    adapterType === "process" ||
+    adapterType === "http";
   const isHermesLocal = adapterType === "hermes_local";
   const showLegacyWorkingDirectoryField =
     isLocal && shouldShowLegacyWorkingDirectoryField({ isCreate, adapterConfig: config });
@@ -1168,7 +1170,10 @@ function EnvVarEditor({
       const k = row.key.trim();
       if (!k) continue;
       if (row.source === "secret") {
-        if (!row.secretId) continue;
+        if (!row.secretId) {
+          // Keep the key visible but don't emit an incomplete binding yet
+          continue;
+        }
         rec[k] = { type: "secret_ref", secretId: row.secretId, version: "latest" };
       } else {
         rec[k] = { type: "plain", value: row.plainValue };
@@ -1258,7 +1263,7 @@ function EnvVarEditor({
               onChange={(e) =>
                 updateRow(i, {
                   source: e.target.value === "secret" ? "secret" : "plain",
-                  ...(e.target.value === "plain" ? { secretId: "" } : {}),
+                  ...(e.target.value === "plain" ? { secretId: "" } : { plainValue: "" }),
                 })
               }
             >
